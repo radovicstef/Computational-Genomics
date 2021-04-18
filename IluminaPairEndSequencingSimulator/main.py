@@ -20,6 +20,21 @@ def calculate_number_of_reads(coverage, read_length):
     num_of_pair_end_reads = 2 * num_of_reads
 
 
+def reverse_read(read):
+    return read[::-1]
+
+
+def complement_read(read):
+    complement = {
+        'A': 'T',
+        'T': 'A',
+        'C': 'G',
+        'G': 'C',
+        'N': 'N'
+    }
+    return ''.join([complement[base] for base in read])
+
+
 # Global variables
 genome = ""
 genome_length = 0
