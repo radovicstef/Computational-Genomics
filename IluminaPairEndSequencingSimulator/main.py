@@ -28,13 +28,13 @@ num_of_pair_end_reads = 0  # number of pair-end reads = 2 * number of reads
 
 
 # The main program
-def simulate():
+def simulate(genome_file, avg_nucleotide_quality, coverage, read_length, insert_size, prob_snv=0, prob_ins_del=0):
     global genome
-    read_genome("genomeSample.fa")
-    calculate_number_of_reads(4, 7)
+    read_genome(genome_file)
+    calculate_number_of_reads(coverage, read_length)
     print("Number of reads: {}".format(num_of_reads))
     print("Genome size from FASTA file: {}".format(genome_length))
 
 
 if __name__ == "__main__":
-    simulate()
+    simulate("genomeSample.fa", 100, 4, 7, 10)
