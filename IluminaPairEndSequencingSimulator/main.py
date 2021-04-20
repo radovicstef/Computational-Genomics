@@ -2,6 +2,9 @@
 
 
 # Methods
+import numpy.random
+
+
 def read_genome(file_name):
     global genome, genome_length
     genome_file = open(file_name, "r")
@@ -35,15 +38,28 @@ def complement_read(read):
     return ''.join([complement[base] for base in read])
 
 
+# Quality range = 0 - 40, ASCII characters range = 33 - 73
+# Illumina reference: https://bit.ly/3eb8xw0
+def get_quality(avg_quality, sigma, read_length):
+    qualities = [round(quality) for quality in numpy.random.normal(avg_quality, sigma, read_length)]
+    for quality in qualities:
+        if quality < 0:
+            quality = 0
+        if quality > 40:
+            quality = 40
+    return "".join([chr(quality+33) for quality in qualities])
+
+
 # Global variables
 genome = ""
 genome_length = 0
 num_of_reads = 0  # number of reads = number of fragments
 num_of_pair_end_reads = 0  # number of pair-end reads = 2 * number of reads
+SIGMA = 5
 
 
 # The main program
-def simulate(genome_file, avg_nucleotide_quality, coverage, read_length, insert_size, prob_snv=0, prob_ins_del=0):
+def simulate(genome_file, avg_nucleotide_quality, coverage, read_length, insert_size, prob_snv=0, prob_ins=0, prob_del=0):
     global genome
     read_genome(genome_file)
     calculate_number_of_reads(coverage, read_length)

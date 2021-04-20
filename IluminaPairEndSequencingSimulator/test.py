@@ -18,3 +18,12 @@ assert(reversed_read == "CAGANATTTGCA")
 # Test complement read
 complemented_read = main.complement_read(read)
 assert(complemented_read == "TGCAAATNTCTG")
+
+# Test get quality
+avg_quality = 15
+sigma = 5
+read_length = 5
+qualities = main.get_quality(avg_quality, sigma, read_length)
+print(qualities)
+for quality in qualities:
+    assert (quality >= chr(avg_quality - sigma) or quality <= chr(avg_quality + sigma))
