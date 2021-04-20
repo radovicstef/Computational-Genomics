@@ -8,11 +8,17 @@ import numpy.random
 def read_genome(file_name):
     global genome, genome_length
     genome_file = open(file_name, "r")
+    genome_name = ""
     lines = genome_file.read().splitlines()  # returns the list of lines without \n
     for line in lines:
-        # get only the nucleotides
-        if line.find('>') == -1:
-            genome = genome + line
+        # get the name of the sequence
+        if line.find('>') != -1:
+            genome_name = line.split()[0][1:]
+            genome[genome_name] = ""
+        # get the sequence
+        else:
+            genome[genome_name] = genome[genome_name] + line
+
     genome_file.close()
     genome_length = len(genome)
 
@@ -51,7 +57,7 @@ def get_quality(avg_quality, sigma, read_length):
 
 
 # Global variables
-genome = ""
+genome = {}  # dictionary - sequence_name:sequence
 genome_length = 0
 num_of_reads = 0  # number of reads = number of fragments
 num_of_pair_end_reads = 0  # number of pair-end reads = 2 * number of reads
