@@ -9,9 +9,9 @@ main.simulate("genomeSample.fa", 100, 4, 7, 10)
 valid_genome_file = open('genome.txt', 'r')
 valid_genome = [line.rstrip('\n') for line in valid_genome_file.readlines()]
 i = 0
-for sequence_name, sequence in main.genome.items():
-    assert sequence == valid_genome[i]
-    i += 1
+#for sequence_name, sequence in main.genome.items():
+    #assert sequence == valid_genome[i]
+    #i += 1
 
 # Test reverse read
 read = "ACGTTTANAGAC"
@@ -41,7 +41,12 @@ assert main.get_mutated_single_nucleotide("N") != "N"
 
 
 # Test the mutations
-main.add_mutations(0.2)
-print("MUTATED GENOME: ")
-for sequence_name in main.genome:
-    print(main.genome[sequence_name])
+#main.add_mutations(0.2)
+#print("MUTATED GENOME: ")
+#for sequence_name in main.genome:
+    #print(main.genome[sequence_name])
+
+
+# Test generating reads
+main.simulate("genomeSample.fa", 30, 10, 10, 25)
+main.get_reads(30, 10, 10, 25)

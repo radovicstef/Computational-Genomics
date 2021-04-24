@@ -24,16 +24,19 @@ def read_genome(file_name):
     genome_length = len(genome)
 
 
-def calculate_number_of_reads(coverage, read_length):
-    global genome_length, num_of_reads, num_of_pair_end_reads
-    num_of_reads = int(round(coverage * genome_length / (read_length * 2)))  # Lander-Waterman formula
+def calculate_number_of_reads(sequence_length, coverage, read_length):
+    global num_of_reads, num_of_pair_end_reads
+    # Number of reads = Number of fragments
+    num_of_reads = int(round(coverage * sequence_length / (read_length * 2)))  # Lander-Waterman formula
     num_of_pair_end_reads = 2 * num_of_reads
 
 
+# Second read should be reversed, as well as the quality string
 def reverse_read(read):
     return read[::-1]
 
 
+# Second read should be complemented
 def complement_read(read):
     complement = {
         'A': 'T',
@@ -84,20 +87,46 @@ def add_mutations(prob_snv=0, prob_ins=0, prob_del=0):
             genome[sequence_name] = genome[sequence_name][0:mutation_position] + genome[sequence_name][mutation_position+1:]
 
 
+def get_reads(avg_quality, coverage, read_length, insert_size):
+    global SIGMA
+    fastq_1 = open("genome_1.fastq", "w")
+    fastq_2 = open("genome_2.fastq", "w")
+    for sequence_name, sequence in genome.items():
+        calculate_number_of_reads(len(sequence), coverage, read_length)
+        # Fragment position should be uniformly distributed to suit specified coverage
+        fragment_positions = numpy.random.uniform(0, len(sequence) - insert_size, num_of_reads)
+        for i in range(num_of_reads):
+            fragment_position = round(fragment_positions[i])
+            if fragment_position == (len(sequence) - insert_size):
+                fragment_position -= 1
+
+            read_1_id = "@" + sequence_name + str(i) + "/1"
+            read_1 = sequence[fragment_position:(fragment_position + read_length)]
+            read_1_quality = get_quality(avg_quality, SIGMA, read_length)
+
+            read_2_id = "@" + sequence_name + str(i) + "/2"
+            read_2 = sequence[(fragment_position + insert_size - read_length):(fragment_position + insert_size)]
+            read_2 = complement_read(read_2)
+            read_2 = reverse_read(read_2)
+            read_2_quality = get_quality(avg_quality, SIGMA, read_length)
+            read_2_quality = reverse_read(read_2_quality)
+
+            fastq_1.write("{}\n{}\n+\n{}\n".format(read_1_id, read_1, read_1_quality))
+            fastq_2.write("{}\n{}\n+\n{}\n".format(read_2_id, read_2, read_2_quality))
+
+
 # Global variables
 genome = {}  # dictionary - sequence_name:sequence from FASTA file
 genome_length = 0
 num_of_reads = 0  # number of reads = number of fragments
 num_of_pair_end_reads = 0  # number of pair-end reads = 2 * number of reads
-SIGMA = 5
+SIGMA = 3
 
 
 # The main program
 def simulate(genome_file, avg_nucleotide_quality, coverage, read_length, insert_size, prob_snv=0, prob_ins=0, prob_del=0):
     global genome
     read_genome(genome_file)
-    calculate_number_of_reads(coverage, read_length)
-    print("Number of reads: {}".format(num_of_reads))
     print("Genome size from FASTA file: {}".format(genome_length))
 
 
