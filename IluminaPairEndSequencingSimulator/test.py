@@ -50,3 +50,4 @@ assert main.get_mutated_single_nucleotide("N") != "N"
 # Test generating reads
 main.simulate("genomeSample.fa", 30, 10, 10, 25)
 main.get_reads(30, 10, 10, 25)
+
