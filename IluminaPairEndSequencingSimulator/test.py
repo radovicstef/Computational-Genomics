@@ -51,3 +51,6 @@ assert main.get_mutated_single_nucleotide("N") != "N"
 main.simulate("genomeSample.fa", 30, 10, 10, 25)
 main.get_reads(30, 10, 10, 25)
 
+# Test input parameters
+assert (main.check_input_parameters(0.5, 10, 12, 24) == 1)
+

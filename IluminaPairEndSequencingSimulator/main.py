@@ -6,6 +6,11 @@ import numpy as np
 import numpy.random
 from random import randrange
 
+def check_input_parameters(avg_nucleotide_quality, coverage, read_length, insert_size):
+    if (avg_nucleotide_quality>1 or avg_nucleotide_quality<0): return 0
+    if (read_length<0 or insert_size<0): return 0
+    if (read_length>insert_size): return 0
+    return 1
 
 def read_genome(file_name): 
     global genome, genome_length
@@ -102,11 +107,14 @@ def get_reads(avg_quality, coverage, read_length, insert_size):
             if fragment_position == (len(sequence) - insert_size):
                 fragment_position -= 1
 
+            print("i=" + str(i)+" pozicija je "+ str(fragment_position))
             read_1_id = "@" + sequence_name + str(i) + "/1"
             read_1 = sequence[fragment_position:(fragment_position + read_length)]
+            print(read_1)
             read_1_quality = get_quality(avg_quality, SIGMA, read_length)
 
             read_2_id = "@" + sequence_name + str(i) + "/2"
+            print("i=" + str(i) + " pozicija je " + str(fragment_position + insert_size - read_length))
             read_2 = sequence[(fragment_position + insert_size - read_length):(fragment_position + insert_size)]
             read_2 = complement_read(read_2)
             read_2 = reverse_read(read_2)
@@ -119,15 +127,10 @@ def get_reads(avg_quality, coverage, read_length, insert_size):
         print(rounded_positions)
 
 
-def make_sam_file(fastq_1_name, fastq_2_name,positions_of_fragments, insert_size, read_length):
+def make_sam_file(fastq_1_name, fastq_2_name,positions_of_fragments, read_length, insert_size):
     global fragment_positions
-    fastq_1=open(fastq_1_name, "r")
-    fastq_2=open(fastq_2_name, "r")
     sam_file=open("final_sam_file.sam", "w")
-    print("Zavrsio sam ovo!")
     rounded_positions = np.round_(positions_of_fragments).astype(int)
-    #print(rounded_positions)
-    rounded_positions.sort()
     before=""
     i = -1
     label=""
@@ -148,27 +151,32 @@ def make_sam_file(fastq_1_name, fastq_2_name,positions_of_fragments, insert_size
                 #name is @chr1+i, and you need i, and i is
                 #the same in both reads
                 i=int(stripped_line1[5:stripped_line1.find("/")])
-                #getting the position of left read
-                position_read_1 = rounded_positions[i]
-                position_read_2 = rounded_positions[i] + insert_size - read_length
+                print(str(i) + " i je")
+                #getting the position of reads, +1 cuz of sam file, numeration starts from 1, not 0
+                position_read_1 = rounded_positions[i]+1
+                position_read_2 = rounded_positions[i] + insert_size - read_length + 1
+                print(str(rounded_positions[i]) + " pozicija i i=" + str(i))
                 before=stripped_line1[0]
                 continue
             if (before=="@"):
-                sequance1=stripped_line1
+                sequance1 = stripped_line1
                 sequance2 = reverse_read(stripped_line2)
-                sequance2 = complement_read(stripped_line2)
+                sequance2 = complement_read(sequance2)
                 before = stripped_line1[0]
                 continue
             if (before=="+"):
-            # kvalitet i ovde treba da se upise u fajl
-                quality1=stripped_line1
-                quality2=stripped_line2
+            # quality, writing to sam file here, cuz this is the fourth line of one read
+                quality1 = stripped_line1
+                quality2 = stripped_line2
                 print(stripped_line1)
+                print("Upisujem u sam position read 1 " + str(position_read_1) + " read2=" + str(position_read_2))
+                print(sequance1)
                 sam_file.write(label + " " + str(position_read_1) + " " + sequance1 + " " + quality1 + "\n")
                 sam_file.write(label + " " + str(position_read_2) + " " + sequance2 + " " + quality2 + "\n")
                 before = stripped_line1[0]
                 continue
             before = stripped_line1[0]
+    print(len("ATATCGGGAAAAATTGAAAAACT"))
 
 # Global variables
 genome = {}  # dictionary - sequence_name:sequence from FASTA file
@@ -183,10 +191,15 @@ fragment_positions=[]
 # The main program
 def simulate(genome_file, avg_nucleotide_quality, coverage, read_length, insert_size, prob_snv=0, prob_ins=0, prob_del=0):
     global genome
+    valid = check_input_parameters(avg_nucleotide_quality, coverage, read_length, insert_size)
+    print("Valid=" + str(valid))
+    if (valid==0): return
     read_genome(genome_file)
     print("Genome size from FASTA file: {}".format(genome_length))
-    #get_reads(30, 10, 10, 25)
-    #make_sam_file("genome_1.fastq", "genome_2.fastq", fragment_positions, 10, 25)
+    get_reads(30, 10, 10, 25)
+    make_sam_file("genome_1.fastq", "genome_2.fastq", fragment_positions, 10, 25)
+    s=reverse_read("CATGTTGAGT")
+    print(complement_read(s))
 
 
 if __name__ == "__main__":
