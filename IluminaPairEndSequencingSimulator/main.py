@@ -5,12 +5,22 @@
 import numpy as np
 import numpy.random
 from random import randrange
+import re
 
-def check_input_parameters(avg_nucleotide_quality, coverage, read_length, insert_size):
-    if (avg_nucleotide_quality>1 or avg_nucleotide_quality<0): return 0
-    if (read_length<0 or insert_size<0): return 0
-    if (read_length>insert_size): return 0
+
+def check_input_parameters(avg_nucleotide_quality, coverage, read_length, insert_size, prob_snv, prob_ins, prob_del):
+    if read_length < 0 or insert_size < 0:
+        return 0
+    if prob_snv < 0 or prob_snv > 1:
+        return 0
+    if prob_ins < 0 or prob_ins > 1:
+        return 0
+    if prob_del < 0 or prob_del > 1:
+        return 0
+    if read_length > insert_size:
+        return 0
     return 1
+
 
 def read_genome(file_name): 
     global genome, genome_length
@@ -98,6 +108,7 @@ def get_reads(avg_quality, coverage, read_length, insert_size):
     global fragment_positions
     fastq_1 = open("genome_1.fastq", "w")
     fastq_2 = open("genome_2.fastq", "w")
+    sam_file = open("final_sam_file.sam", "w")
     for sequence_name, sequence in genome.items():
         calculate_number_of_reads(len(sequence), coverage, read_length)
         # Fragment position should be uniformly distributed to suit specified coverage
@@ -107,76 +118,70 @@ def get_reads(avg_quality, coverage, read_length, insert_size):
             if fragment_position == (len(sequence) - insert_size):
                 fragment_position -= 1
 
-            print("i=" + str(i)+" pozicija je "+ str(fragment_position))
             read_1_id = "@" + sequence_name + str(i) + "/1"
             read_1 = sequence[fragment_position:(fragment_position + read_length)]
-            print(read_1)
             read_1_quality = get_quality(avg_quality, SIGMA, read_length)
 
             read_2_id = "@" + sequence_name + str(i) + "/2"
-            print("i=" + str(i) + " pozicija je " + str(fragment_position + insert_size - read_length))
             read_2 = sequence[(fragment_position + insert_size - read_length):(fragment_position + insert_size)]
+            read_2_sam = read_2
             read_2 = complement_read(read_2)
             read_2 = reverse_read(read_2)
             read_2_quality = get_quality(avg_quality, SIGMA, read_length)
+            read_2_quality_sam = read_2_quality
             read_2_quality = reverse_read(read_2_quality)
 
             fastq_1.write("{}\n{}\n+\n{}\n".format(read_1_id, read_1, read_1_quality))
             fastq_2.write("{}\n{}\n+\n{}\n".format(read_2_id, read_2, read_2_quality))
-        rounded_positions = np.round_(fragment_positions).astype(int)
-        print(rounded_positions)
+            sam_file.write("{}\t{}\t{}\t{}\n".format(read_1_id, fragment_position + 1, read_1, read_1_quality)) #+1 because it's 1-based
+            sam_file.write("{}\t{}\t{}\t{}\n".format(read_2_id, fragment_position + insert_size - read_length + 1, read_2_sam, read_2_quality_sam))
 
 
-def make_sam_file(fastq_1_name, fastq_2_name,positions_of_fragments, read_length, insert_size):
-    global fragment_positions
-    sam_file=open("final_sam_file.sam", "w")
-    rounded_positions = np.round_(positions_of_fragments).astype(int)
-    before=""
-    i = -1
-    label=""
-    quality1=""
-    sequance1=""
-    quality2=""
-    sequance2=""
-    position_read_1=-1
-    position_read_2=-1
+# Compare BWA-MEM with generated SAM file
+def compare_sam_bwa_mem(bwa_mem_sam_path, generated_sam_path):
+    all_reads = 0
+    matched = 0
+    skip_lines = 0
+    with open(bwa_mem_sam_path, "r") as bwa_mem_sam:
+        for line in bwa_mem_sam:
+            if line[0] == '@':
+                skip_lines += 1
+                continue
+            else:
+                bwa_mem_sam.close()
+                break
+    with open(bwa_mem_sam_path, "r") as bwa_mem_sam, open(generated_sam_path, "r") as generated_sam:
+        for i in range(skip_lines):
+            line = bwa_mem_sam.readline()
+        for line1, line2 in zip(bwa_mem_sam, generated_sam):
+            line1_split = re.split(r'\t+', line1)
+            line2_split = re.split(r'\t+', line2)
+            all_reads += 1
+            if line1_split[3] == line2_split[1]:
+                matched = matched + 1
+    print("BWA-MEM efficiency: " + str(matched/all_reads))
+    return matched/all_reads
 
-    with open(fastq_1_name, "r") as fastq_1, open(fastq_2_name, "r") as fastq_2:
-        for line1, line2 in zip(fastq_1, fastq_2):
-            stripped_line1 = line1.strip()
-            stripped_line2 = line2.strip()
-            if (stripped_line1[0]=="@" and before!="+"):
-                #label is the same in both reads
-                label=stripped_line1[0:stripped_line1.find("/")]
-                #name is @chr1+i, and you need i, and i is
-                #the same in both reads
-                i=int(stripped_line1[5:stripped_line1.find("/")])
-                print(str(i) + " i je")
-                #getting the position of reads, +1 cuz of sam file, numeration starts from 1, not 0
-                position_read_1 = rounded_positions[i]+1
-                position_read_2 = rounded_positions[i] + insert_size - read_length + 1
-                print(str(rounded_positions[i]) + " pozicija i i=" + str(i))
-                before=stripped_line1[0]
+
+def compare_sam_bowtie(bowtie_sam_path, generated_sam_path):
+    all_reads = 0
+    matched = 0
+    bowtie_reads = {}
+    with open(bowtie_sam_path, "r") as bowtie_sam:
+        for line in bowtie_sam:
+            if line[0] == '@':
                 continue
-            if (before=="@"):
-                sequance1 = stripped_line1
-                sequance2 = reverse_read(stripped_line2)
-                sequance2 = complement_read(sequance2)
-                before = stripped_line1[0]
-                continue
-            if (before=="+"):
-            # quality, writing to sam file here, cuz this is the fourth line of one read
-                quality1 = stripped_line1
-                quality2 = stripped_line2
-                print(stripped_line1)
-                print("Upisujem u sam position read 1 " + str(position_read_1) + " read2=" + str(position_read_2))
-                print(sequance1)
-                sam_file.write(label + " " + str(position_read_1) + " " + sequance1 + " " + quality1 + "\n")
-                sam_file.write(label + " " + str(position_read_2) + " " + sequance2 + " " + quality2 + "\n")
-                before = stripped_line1[0]
-                continue
-            before = stripped_line1[0]
-    print(len("ATATCGGGAAAAATTGAAAAACT"))
+            line_split = re.split(r'\t+', line)
+            bowtie_reads['@' + line_split[0]] = line_split[3]
+    with open(generated_sam_path, "r") as generated_sam:
+        for line in generated_sam:
+            line_split = re.split(r'\t+', line)
+            all_reads += 1
+            if bowtie_reads[line_split[0]] == line_split[1]:
+                matched += 1
+    print("Bowtie efficiency: " + str(matched/all_reads))
+    return matched/all_reads
+
 
 # Global variables
 genome = {}  # dictionary - sequence_name:sequence from FASTA file
@@ -184,22 +189,20 @@ genome_length = 0
 num_of_reads = 0  # number of reads = number of fragments
 num_of_pair_end_reads = 0  # number of pair-end reads = 2 * number of reads
 SIGMA = 3
-fragment_positions=[]
-
+fragment_positions = []
 
 
 # The main program
 def simulate(genome_file, avg_nucleotide_quality, coverage, read_length, insert_size, prob_snv=0, prob_ins=0, prob_del=0):
     global genome
-    valid = check_input_parameters(avg_nucleotide_quality, coverage, read_length, insert_size)
-    print("Valid=" + str(valid))
-    if (valid==0): return
+    valid = check_input_parameters(avg_nucleotide_quality, coverage, read_length, insert_size, prob_snv, prob_ins, prob_del)
+    if valid == 0:
+        print("The input parameters are not valid!")
+        return
     read_genome(genome_file)
-    print("Genome size from FASTA file: {}".format(genome_length))
-    get_reads(30, 10, 10, 25)
-    make_sam_file("genome_1.fastq", "genome_2.fastq", fragment_positions, 10, 25)
-    s=reverse_read("CATGTTGAGT")
-    print(complement_read(s))
+    #get_reads(30, 10, 10, 25)
+    #compare_sam_bwa_mem("genome.sam", "final_sam_file.sam")
+    compare_sam_bowtie("genome_bowtie.sam", "final_sam_file.sam")
 
 
 if __name__ == "__main__":
