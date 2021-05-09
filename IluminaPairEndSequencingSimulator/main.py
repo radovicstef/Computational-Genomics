@@ -203,6 +203,7 @@ def simulate(genome_file, avg_nucleotide_quality, coverage, read_length, insert_
     #get_reads(30, 10, 10, 25)
     #compare_sam_bwa_mem("genome.sam", "final_sam_file.sam")
     compare_sam_bowtie("genome_bowtie.sam", "final_sam_file.sam")
+    #nesto
 
 
 if __name__ == "__main__":
