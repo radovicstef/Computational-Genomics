@@ -103,6 +103,7 @@ def add_mutations(prob_snv=0, prob_ins=0, prob_del=0):
             genome[sequence_name] = genome[sequence_name][0:mutation_position] + genome[sequence_name][mutation_position+1:]
 
 
+# Generate reads, output FASTQ files, SAM file
 def get_reads(avg_quality, coverage, read_length, insert_size):
     global SIGMA
     global fragment_positions
@@ -115,7 +116,7 @@ def get_reads(avg_quality, coverage, read_length, insert_size):
         fragment_positions = numpy.random.uniform(0, len(sequence) - insert_size, num_of_reads)
         for i in range(num_of_reads):
             fragment_position = round(fragment_positions[i])
-            if fragment_position == (len(sequence) - insert_size):
+            if fragment_position == (len(sequence) - insert_size):  # Edge case
                 fragment_position -= 1
 
             read_1_id = "@" + sequence_name + str(i) + "/1"
@@ -124,11 +125,11 @@ def get_reads(avg_quality, coverage, read_length, insert_size):
 
             read_2_id = "@" + sequence_name + str(i) + "/2"
             read_2 = sequence[(fragment_position + insert_size - read_length):(fragment_position + insert_size)]
-            read_2_sam = read_2
+            read_2_sam = read_2  # Read2 shouldn't be reversed complemented in SAM file
             read_2 = complement_read(read_2)
             read_2 = reverse_read(read_2)
             read_2_quality = get_quality(avg_quality, SIGMA, read_length)
-            read_2_quality_sam = read_2_quality
+            read_2_quality_sam = read_2_quality  # Read2 quality shouldn't be reversed in SAM file
             read_2_quality = reverse_read(read_2_quality)
 
             fastq_1.write("{}\n{}\n+\n{}\n".format(read_1_id, read_1, read_1_quality))
@@ -144,7 +145,7 @@ def compare_sam_bwa_mem(bwa_mem_sam_path, generated_sam_path):
     skip_lines = 0
     with open(bwa_mem_sam_path, "r") as bwa_mem_sam:
         for line in bwa_mem_sam:
-            if line[0] == '@':
+            if line[0] == '@':  # Skip header
                 skip_lines += 1
                 continue
             else:
@@ -169,7 +170,7 @@ def compare_sam_bowtie(bowtie_sam_path, generated_sam_path):
     bowtie_reads = {}
     with open(bowtie_sam_path, "r") as bowtie_sam:
         for line in bowtie_sam:
-            if line[0] == '@':
+            if line[0] == '@':  # Skip header
                 continue
             line_split = re.split(r'\t+', line)
             bowtie_reads['@' + line_split[0]] = line_split[3]
@@ -177,7 +178,7 @@ def compare_sam_bowtie(bowtie_sam_path, generated_sam_path):
         for line in generated_sam:
             line_split = re.split(r'\t+', line)
             all_reads += 1
-            if bowtie_reads[line_split[0]] == line_split[1]:
+            if bowtie_reads[line_split[0]] == line_split[1]:  # Compare aligned positions
                 matched += 1
     print("Bowtie efficiency: " + str(matched/all_reads))
     return matched/all_reads
@@ -200,10 +201,9 @@ def simulate(genome_file, avg_nucleotide_quality, coverage, read_length, insert_
         print("The input parameters are not valid!")
         return
     read_genome(genome_file)
-    #get_reads(30, 10, 10, 25)
-    #compare_sam_bwa_mem("genome.sam", "final_sam_file.sam")
-    compare_sam_bowtie("genome_bowtie.sam", "final_sam_file.sam")
+    get_reads(avg_nucleotide_quality, coverage, read_length, insert_size)
 
 
 if __name__ == "__main__":
-    simulate("genomeSample.fa", 30, 10, 10, 25)
+    #simulate("NIH sample genomes/NC_042747.1.fa", 40, 7, 200, 500, 0, 0, 0)
+    compare_sam_bwa_mem("genome_bwa.sam", "final_sam_file.sam")
