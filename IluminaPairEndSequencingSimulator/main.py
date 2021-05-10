@@ -6,6 +6,7 @@ import numpy as np
 import numpy.random
 from random import randrange
 import re
+import argparse
 
 
 def check_input_parameters(avg_nucleotide_quality, coverage, read_length, insert_size, prob_snv, prob_ins, prob_del):
@@ -23,7 +24,8 @@ def check_input_parameters(avg_nucleotide_quality, coverage, read_length, insert
 
 
 def read_genome(file_name): 
-    global genome, genome_length
+    global genome
+    print("Reading reference genome...")
     genome_file = open(file_name, "r")
     genome_name = ""
     lines = genome_file.read().splitlines()  # returns the list of lines without \n
@@ -37,7 +39,6 @@ def read_genome(file_name):
             genome[genome_name] = genome[genome_name] + line
 
     genome_file.close()
-    genome_length = len(genome)
 
 
 def calculate_number_of_reads(sequence_length, coverage, read_length):
@@ -84,6 +85,7 @@ def get_mutated_single_nucleotide(nucleotide):
 
 def add_mutations(prob_snv=0, prob_ins=0, prob_del=0):
     bases = ['A', 'C', 'G', 'T']
+    print("Adding mutations...")
     for sequence_name in genome:
         sequence_length = len(genome[sequence_name])
         snv_num = round(sequence_length * prob_snv)
@@ -104,12 +106,13 @@ def add_mutations(prob_snv=0, prob_ins=0, prob_del=0):
 
 
 # Generate reads, output FASTQ files, SAM file
-def get_reads(avg_quality, coverage, read_length, insert_size):
+def get_reads_and_generate_files(avg_quality, coverage, read_length, insert_size):
     global SIGMA
     global fragment_positions
     fastq_1 = open("genome_1.fastq", "w")
     fastq_2 = open("genome_2.fastq", "w")
     sam_file = open("final_sam_file.sam", "w")
+    print("Sequencing and generating FASTQ, SAM files...")
     for sequence_name, sequence in genome.items():
         calculate_number_of_reads(len(sequence), coverage, read_length)
         # Fragment position should be uniformly distributed to suit specified coverage
@@ -134,7 +137,7 @@ def get_reads(avg_quality, coverage, read_length, insert_size):
 
             fastq_1.write("{}\n{}\n+\n{}\n".format(read_1_id, read_1, read_1_quality))
             fastq_2.write("{}\n{}\n+\n{}\n".format(read_2_id, read_2, read_2_quality))
-            sam_file.write("{}\t{}\t{}\t{}\n".format(read_1_id, fragment_position + 1, read_1, read_1_quality)) #+1 because it's 1-based
+            sam_file.write("{}\t{}\t{}\t{}\n".format(read_1_id, fragment_position + 1, read_1, read_1_quality))  # +1 because SAM file is 1-based
             sam_file.write("{}\t{}\t{}\t{}\n".format(read_2_id, fragment_position + insert_size - read_length + 1, read_2_sam, read_2_quality_sam))
 
 
@@ -143,13 +146,19 @@ def compare_sam_bwa_mem(bwa_mem_sam_path, generated_sam_path):
     all_reads = 0
     matched = 0
     skip_lines = 0
+    print("Comparing SAM files...")
+    if None in (bwa_mem_sam_path, generated_sam_path):
+        print("***")
+        print(bwa_mem_sam_path)
+        print(generated_sam_path)
+        print("Please, make sure you specified all necessary parameters - bwapath, sampath")
+        return
     with open(bwa_mem_sam_path, "r") as bwa_mem_sam:
         for line in bwa_mem_sam:
             if line[0] == '@':  # Skip header
                 skip_lines += 1
                 continue
             else:
-                bwa_mem_sam.close()
                 break
     with open(bwa_mem_sam_path, "r") as bwa_mem_sam, open(generated_sam_path, "r") as generated_sam:
         for i in range(skip_lines):
@@ -161,6 +170,7 @@ def compare_sam_bwa_mem(bwa_mem_sam_path, generated_sam_path):
             if line1_split[3] == line2_split[1]:
                 matched = matched + 1
     print("BWA-MEM efficiency: " + str(matched/all_reads))
+    print("Finished!")
     return matched/all_reads
 
 
@@ -168,6 +178,10 @@ def compare_sam_bowtie(bowtie_sam_path, generated_sam_path):
     all_reads = 0
     matched = 0
     bowtie_reads = {}
+    print("Comparing SAM files...")
+    if None in (bowtie_sam_path, generated_sam_path):
+        print("Please, make sure you specified all necessary parameters - bowtiepath, sampath")
+        return
     with open(bowtie_sam_path, "r") as bowtie_sam:
         for line in bowtie_sam:
             if line[0] == '@':  # Skip header
@@ -181,12 +195,12 @@ def compare_sam_bowtie(bowtie_sam_path, generated_sam_path):
             if bowtie_reads[line_split[0]] == line_split[1]:  # Compare aligned positions
                 matched += 1
     print("Bowtie efficiency: " + str(matched/all_reads))
+    print("Finished!")
     return matched/all_reads
 
 
 # Global variables
 genome = {}  # dictionary - sequence_name:sequence from FASTA file
-genome_length = 0
 num_of_reads = 0  # number of reads = number of fragments
 num_of_pair_end_reads = 0  # number of pair-end reads = 2 * number of reads
 SIGMA = 3
@@ -196,17 +210,44 @@ fragment_positions = []
 # The main program
 def simulate(genome_file, avg_nucleotide_quality, coverage, read_length, insert_size, prob_snv=0, prob_ins=0, prob_del=0):
     global genome
+    print("Starting simulation...")
+    if None in (genome_file, avg_nucleotide_quality, coverage, read_length, insert_size):
+        print("Please, make sure you specified all necessary parameters - refgenome, avgquality, coverage, readlength, insertsize")
+        return
     valid = check_input_parameters(avg_nucleotide_quality, coverage, read_length, insert_size, prob_snv, prob_ins, prob_del)
     if valid == 0:
         print("The input parameters are not valid!")
         return
     read_genome(genome_file)
-    get_reads(avg_nucleotide_quality, coverage, read_length, insert_size)
-    #get_reads(30, 10, 10, 25)
-    #compare_sam_bwa_mem("genome.sam", "final_sam_file.sam")
-    compare_sam_bowtie("genome_bowtie.sam", "final_sam_file.sam")
+    add_mutations(prob_snv, prob_ins, prob_del)
+    get_reads_and_generate_files(avg_nucleotide_quality, coverage, read_length, insert_size)
+    print("Finished!")
 
 
 if __name__ == "__main__":
-    #simulate("NIH sample genomes/NC_042747.1.fa", 40, 7, 200, 500, 0, 0, 0)
-    compare_sam_bwa_mem("genome_bwa.sam", "final_sam_file.sam")
+    parser = argparse.ArgumentParser(
+        description="Illumina Pair-End Sequencing Simulator"
+    )  # Initializing parser
+
+    # Add the parameters positional/optional
+    parser.add_argument('func', help="Choose functionality: 1 - generate FASTQ files and SAM file, 2 - Compare BWA-MEM, 3 - Compare Bowtie", type=int)
+    parser.add_argument('--refgenome', help="Path to reference genome", type=str)
+    parser.add_argument('--avgquality', help="Average nucletiode quality", type=int)
+    parser.add_argument('--coverage', help="Coverage", type=int)
+    parser.add_argument('--readlength', help="Read length", type=int)
+    parser.add_argument('--insertsize', help="Insert size", type=int)
+    parser.add_argument('--probsnv', help="Probability snv mutation", type=int, default=0)
+    parser.add_argument('--probins', help="Probability insert mutation", type=int, default=0)
+    parser.add_argument('--probdel', help="Probability delete mutation", type=int, default=0)
+    parser.add_argument('--bwapath', help="Path to BWA-MEM tool generated SAM file", type=str)
+    parser.add_argument('--bowtiepath', help="Path to Bowtie tool generated SAM file", type=str)
+    parser.add_argument('--sampath', help="Path to simulator generated SAM file", type=str)
+
+    args = parser.parse_args()  # Parse the arguments
+
+    if args.func == 1:  # Simulate Illumina pair-end sequencing
+        simulate(args.refgenome, args.avgquality, args.coverage, args.readlength, args.insertsize, args.probsnv, args.probins, args.probdel)
+    if args.func == 2:  # Compare generated SAM file with BWA-MEM tool generated SAM file
+        compare_sam_bwa_mem(args.bwapath, args.sampath)
+    if args.func == 3:  # Compare generated SAM file with Bowtie tool generated SAM file
+        compare_sam_bowtie(args.bowtiepath, args.sampath)
