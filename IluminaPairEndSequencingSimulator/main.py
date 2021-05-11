@@ -142,59 +142,34 @@ def get_reads_and_generate_files(avg_quality, coverage, read_length, insert_size
 
 
 # Compare BWA-MEM with generated SAM file
-def compare_sam_bwa_mem(bwa_mem_sam_path, generated_sam_path):
+def compare_sam(tool_sam_path, generated_sam_path):
     all_reads = 0
     matched = 0
     skip_lines = 0
     print("Comparing SAM files...")
-    if None in (bwa_mem_sam_path, generated_sam_path):
-        print("***")
-        print(bwa_mem_sam_path)
-        print(generated_sam_path)
-        print("Please, make sure you specified all necessary parameters - bwapath, sampath")
-        return
-    with open(bwa_mem_sam_path, "r") as bwa_mem_sam:
-        for line in bwa_mem_sam:
+    with open(tool_sam_path, "r") as tool_sam:
+        for line in tool_sam:
             if line[0] == '@':  # Skip header
                 skip_lines += 1
                 continue
             else:
                 break
-    with open(bwa_mem_sam_path, "r") as bwa_mem_sam, open(generated_sam_path, "r") as generated_sam:
+    with open(tool_sam_path, "r") as tool_sam, open(generated_sam_path, "r") as generated_sam:
         for i in range(skip_lines):
-            line = bwa_mem_sam.readline()
-        for line1, line2 in zip(bwa_mem_sam, generated_sam):
+            line = tool_sam.readline()
+        for line1, line2 in zip(tool_sam, generated_sam):
             line1_split = re.split(r'\t+', line1)
             line2_split = re.split(r'\t+', line2)
             all_reads += 1
             if line1_split[3] == line2_split[1]:
                 matched = matched + 1
+            else:
+                print("Unmatched")
+                print("-----")
+                print(line1)
+                print(line2)
+                print("-----")
     print("BWA-MEM efficiency: " + str(matched/all_reads))
-    print("Finished!")
-    return matched/all_reads
-
-
-def compare_sam_bowtie(bowtie_sam_path, generated_sam_path):
-    all_reads = 0
-    matched = 0
-    bowtie_reads = {}
-    print("Comparing SAM files...")
-    if None in (bowtie_sam_path, generated_sam_path):
-        print("Please, make sure you specified all necessary parameters - bowtiepath, sampath")
-        return
-    with open(bowtie_sam_path, "r") as bowtie_sam:
-        for line in bowtie_sam:
-            if line[0] == '@':  # Skip header
-                continue
-            line_split = re.split(r'\t+', line)
-            bowtie_reads['@' + line_split[0]] = line_split[3]
-    with open(generated_sam_path, "r") as generated_sam:
-        for line in generated_sam:
-            line_split = re.split(r'\t+', line)
-            all_reads += 1
-            if bowtie_reads[line_split[0]] == line_split[1]:  # Compare aligned positions
-                matched += 1
-    print("Bowtie efficiency: " + str(matched/all_reads))
     print("Finished!")
     return matched/all_reads
 
@@ -248,6 +223,12 @@ if __name__ == "__main__":
     if args.func == 1:  # Simulate Illumina pair-end sequencing
         simulate(args.refgenome, args.avgquality, args.coverage, args.readlength, args.insertsize, args.probsnv, args.probins, args.probdel)
     if args.func == 2:  # Compare generated SAM file with BWA-MEM tool generated SAM file
-        compare_sam_bwa_mem(args.bwapath, args.sampath)
+        if None in (args.bwapath, args.sampath):
+            print("Please, make sure you specified all necessary parameters - bwapath, sampath")
+        else:
+            compare_sam(args.bwapath, args.sampath)
     if args.func == 3:  # Compare generated SAM file with Bowtie tool generated SAM file
-        compare_sam_bowtie(args.bowtiepath, args.sampath)
+        if None in (args.bowtiepath, args.sampath):
+            print("Please, make sure you specified all necessary parameters - bowtiepath, sampath")
+        else:
+            compare_sam(args.bowtiepath, args.sampath)
