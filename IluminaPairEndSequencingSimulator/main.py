@@ -9,7 +9,9 @@ import re
 import argparse
 
 
-def check_input_parameters(avg_nucleotide_quality, coverage, read_length, insert_size, prob_snv, prob_ins, prob_del):
+def check_input_parameters(avg_nucleotide_quality, coverage, read_length, insert_size, prob_snv=0, prob_ins=0, prob_del=0):
+    if avg_nucleotide_quality < 33 or avg_nucleotide_quality > 73:
+        return 0
     if read_length < 0 or insert_size < 0:
         return 0
     if prob_snv < 0 or prob_snv > 1:
@@ -97,11 +99,11 @@ def add_mutations(prob_snv=0, prob_ins=0, prob_del=0):
             genome[sequence_name] = genome[sequence_name][0:mutation_position] + get_mutated_single_nucleotide(genome[sequence_name][mutation_position]) + genome[sequence_name][mutation_position+1:]
 
         for i in range(ins_num):
-            mutation_position = randrange(sequence_length - 1)
+            mutation_position = randrange(len(genome[sequence_name]) - 1)
             genome[sequence_name] = genome[sequence_name][0:mutation_position] + bases[randrange(4)] + genome[sequence_name][mutation_position:]
 
         for i in range(del_num):
-            mutation_position = randrange(sequence_length - 1)
+            mutation_position = randrange(len(genome[sequence_name]) - 1)
             genome[sequence_name] = genome[sequence_name][0:mutation_position] + genome[sequence_name][mutation_position+1:]
 
 
