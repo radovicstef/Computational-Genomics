@@ -44,10 +44,10 @@ def read_genome(file_name):
 
 
 def calculate_number_of_reads(sequence_length, coverage, read_length):
-    global num_of_reads, num_of_pair_end_reads
     # Number of reads = Number of fragments
     num_of_reads = int(round(coverage * sequence_length / (read_length * 2)))  # Lander-Waterman formula
     num_of_pair_end_reads = 2 * num_of_reads
+    return num_of_reads, num_of_pair_end_reads
 
 
 # Second read should be reversed, as well as the quality string
@@ -110,13 +110,12 @@ def add_mutations(prob_snv=0, prob_ins=0, prob_del=0):
 # Generate reads, output FASTQ files, SAM file
 def get_reads_and_generate_files(avg_quality, coverage, read_length, insert_size):
     global SIGMA
-    global fragment_positions
     fastq_1 = open("genome_1.fastq", "w")
     fastq_2 = open("genome_2.fastq", "w")
     sam_file = open("final_sam_file.sam", "w")
     print("Sequencing and generating FASTQ, SAM files...")
     for sequence_name, sequence in genome.items():
-        calculate_number_of_reads(len(sequence), coverage, read_length)
+        num_of_reads, num_of_pair_end_reads = calculate_number_of_reads(len(sequence), coverage, read_length)
         # Fragment position should be uniformly distributed to suit specified coverage
         fragment_positions = numpy.random.uniform(0, len(sequence) - insert_size, num_of_reads)
         for i in range(num_of_reads):
@@ -177,11 +176,8 @@ def compare_sam(tool_sam_path, generated_sam_path):
 
 
 # Global variables
-genome = {}  # dictionary - sequence_name:sequence from FASTA file
-num_of_reads = 0  # number of reads = number of fragments
-num_of_pair_end_reads = 0  # number of pair-end reads = 2 * number of reads
-SIGMA = 3
-fragment_positions = []
+genome = {}  # dictionary - sequence_name:sequence from FASTA file, used in test.py and therefore global
+SIGMA = 3  # constant value, therefore global
 
 
 # The main program
