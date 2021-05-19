@@ -10,19 +10,20 @@ import argparse
 
 
 def check_input_parameters(avg_nucleotide_quality, coverage, read_length, insert_size, prob_snv=0, prob_ins=0, prob_del=0):
+    ret_value = 0
     if avg_nucleotide_quality < 33 or avg_nucleotide_quality > 73:
-        return 0
+        ret_value = 1
     if read_length < 0 or insert_size < 0:
-        return 0
+        ret_value = 1
     if prob_snv < 0 or prob_snv > 1:
-        return 0
+        ret_value = 1
     if prob_ins < 0 or prob_ins > 1:
-        return 0
+        ret_value = 1
     if prob_del < 0 or prob_del > 1:
-        return 0
+        ret_value = 1
     if read_length > insert_size:
-        return 0
-    return 1
+        ret_value = 1
+    return ret_value
 
 
 def read_genome(file_name): 
@@ -188,7 +189,7 @@ def simulate(genome_file, avg_nucleotide_quality, coverage, read_length, insert_
         print("Please, make sure you specified all necessary parameters - refgenome, avgquality, coverage, readlength, insertsize")
         return
     valid = check_input_parameters(avg_nucleotide_quality, coverage, read_length, insert_size, prob_snv, prob_ins, prob_del)
-    if valid == 0:
+    if valid != 0:
         print("The input parameters are not valid!")
         return
     read_genome(genome_file)

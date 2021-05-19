@@ -100,7 +100,7 @@ for sequence_name, sequence in main.genome.items():
 
 
 # Test input parameters
-assert (main.check_input_parameters(60, 10, 12, 24) == 1)
+assert (main.check_input_parameters(60, 10, 12, 24) == 0)
 
 
 print("Finished!")
